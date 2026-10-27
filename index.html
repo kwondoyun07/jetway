@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>JETWAY — Flight Racer Prototype</title>
+<style>
+:root{color-scheme:dark;--cyan:#70e4ff;--panel:rgba(5,16,31,.72);--muted:#a9bdd1}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#8db8d4;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+canvas{display:block;width:100%;height:100%;outline:none}.hud{position:fixed;inset:0;pointer-events:none;color:#f4f8ff;text-shadow:0 1px 9px #07132166}
+.panel{background:var(--panel);border:1px solid #d2e8ff2b;backdrop-filter:blur(12px);box-shadow:0 12px 36px #0002;border-radius:5px}
+.brand{position:absolute;top:22px;left:24px;display:flex;align-items:center;gap:12px}.mark{width:31px;height:31px;border:1px solid var(--cyan);color:var(--cyan);display:grid;place-items:center;transform:rotate(45deg);font-weight:900}.mark span{transform:rotate(-45deg)}.name{font-size:14px;letter-spacing:.22em;font-weight:850}.sub{font-size:9px;color:var(--muted);letter-spacing:.16em;margin-top:4px}
+.speedbox{position:absolute;top:22px;right:24px;width:150px;padding:12px 15px;text-align:right}.label{font-size:9px;color:var(--muted);letter-spacing:.18em;text-transform:uppercase}.speed{font-size:35px;font-weight:850;line-height:1.1;letter-spacing:-.04em}.speed small{font-size:11px;color:var(--cyan);letter-spacing:.08em}.bar{height:3px;margin-top:8px;background:#fff2}.bar i{display:block;height:100%;width:55%;background:linear-gradient(90deg,var(--cyan),white)}
+.timebox{position:absolute;left:24px;bottom:24px;width:220px;padding:13px 15px}.timehead{display:flex;justify-content:space-between;color:var(--cyan);font-size:10px;letter-spacing:.17em;font-weight:800;margin-bottom:8px}.timehead span:last-child{color:#dce9f8;letter-spacing:0;font-weight:500}.timerow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid #fff1;font-size:11px;color:var(--muted)}.timerow b{font-size:13px;color:#f4f8ff;font-variant-numeric:tabular-nums;font-weight:650}
+.cross{position:absolute;top:50%;left:50%;width:23px;height:23px;transform:translate(-50%,-50%);opacity:.65}.cross:before,.cross:after{content:"";position:absolute;background:#e2f6ffbf}.cross:before{width:1px;height:23px;left:11px}.cross:after{height:1px;width:23px;top:11px}
+.keys{position:absolute;bottom:25px;left:50%;transform:translateX(-50%);display:flex;gap:17px;padding:9px 13px;white-space:nowrap;font-size:10px;color:#d6e4f2;letter-spacing:.03em}.key{display:inline-grid;place-items:center;min-width:21px;height:20px;padding:0 4px;margin-right:4px;border:1px solid #fff4;border-bottom-width:2px;border-radius:3px;background:#fff1;color:white;font-weight:750}
+.notice{position:absolute;left:24px;top:72px;font-size:10px;letter-spacing:.12em;color:#e2edf9}.boost{position:absolute;right:24px;bottom:28px;color:#ffad66;font-weight:800;font-size:10px;letter-spacing:.15em;opacity:0}.boost.on{opacity:1}
+.pause{display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:#06101e66;pointer-events:auto}.pause.on{display:flex}.pausecard{text-align:center;padding:25px 36px}.pausecard h1{margin:0 0 8px;font-size:22px;letter-spacing:.16em}.pausecard p{margin:0;color:var(--muted);font-size:12px}
+@media(max-width:650px){.brand{top:14px;left:14px}.speedbox{top:14px;right:14px;width:115px;padding:9px 10px}.speed{font-size:27px}.timebox{left:14px;bottom:15px;width:180px;padding:10px 12px}.keys{bottom:13px;gap:8px;font-size:9px;padding:7px}.keys .optional{display:none}.notice{left:14px;top:58px;font-size:9px}.boost{right:15px;bottom:66px}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}</script>
+</head>
+<body>
+<canvas id="game" aria-label="JETWAY flight racer"></canvas>
+<div class="hud">
+ <div class="brand"><div class="mark"><span>J</span></div><div><div class="name">JETWAY</div><div class="sub">FLIGHT RACE // PROTOTYPE 0.1</div></div></div>
+ <div class="notice">FLIGHT PATH <span style="color:var(--cyan)">ENGAGED</span> / STEER TO RACE</div>
+ <div class="speedbox panel"><div class="label">Ground speed</div><div class="speed"><span id="speed">248</span> <small>KM/H</small></div><div class="bar"><i id="speedbar"></i></div></div>
+ <div class="cross"></div>
+ <div class="timebox panel"><div class="timehead"><span>TIME TRIAL</span><span>LAP <b id="lap">01</b></span></div><div class="timerow"><span>Current</span><b id="current">00:00.000</b></div><div class="timerow"><span>Last lap</span><b id="last">--:--.---</b></div><div class="timerow"><span>Best lap</span><b id="best">--:--.---</b></div></div>
+ <div class="keys panel"><span><kbd class="key">A</kbd><kbd class="key">D</kbd> STEER</span><span><kbd class="key">W</kbd><kbd class="key">S</kbd> SPEED</span><span><kbd class="key">SHIFT</kbd> BOOST</span><span class="optional"><kbd class="key">P</kbd> PAUSE</span><span class="optional"><kbd class="key">R</kbd> RESET</span></div>
+ <div class="boost" id="boost">▲ AFTERBURNER ACTIVE</div>
+ <div class="pause" id="pause"><div class="pausecard panel"><h1>FLIGHT PAUSED</h1><p>Press P to resume</p></div></div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+
+const canvas = document.querySelector('#game');
+const renderer = new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9bc5df);
+scene.fog = new THREE.Fog(0x9bc5df,260,1000);
+const camera = new THREE.PerspectiveCamera(66,innerWidth/innerHeight,.1,1800);
+const up = new THREE.Vector3(0,1,0);
+const clock = new THREE.Clock();
+scene.add(new THREE.HemisphereLight(0xe7f6ff,0x334a63,2.1));
+const sun = new THREE.DirectionalLight(0xfff0dc,3.2);
+sun.position.set(-150,250,120); sun.castShadow=true; sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.left=-180; sun.shadow.camera.right=180; sun.shadow.camera.top=180; sun.shadow.camera.bottom=-180; scene.add(sun);
+
+const routePoints = [[0,0,-170],[65,2,-155],[123,1,-112],[151,3,-48],[138,4,28],[92,2,102],[24,5,145],[-50,4,128],[-121,2,82],[-151,1,8],[-121,0,-70],[-58,2,-137]].map(function(p){return new THREE.Vector3(p[0],p[1],p[2]);});
+const track = new THREE.CatmullRomCurve3(routePoints,true,'centripetal',.45);
+const length = track.getLength(), width=18, half=width/2;
+function frame(u){
+ const t=((u%1)+1)%1, point=track.getPointAt(t), tangent=track.getTangentAt(t).normalize();
+ const right=tangent.clone().cross(up).normalize(), vertical=right.clone().cross(tangent).normalize();
+ return {point:point,tangent:tangent,right:right,up:vertical};
+}
+function atDistance(d){return frame((((d%length)+length)%length)/length);}
+function pos(d,side,height){const f=atDistance(d);return f.point.clone().addScaledVector(f.right,side||0).addScaledVector(f.up,height||0);}
+function makeStrip(sideA,sideB,material,segments){
+ const vertices=[],indices=[];
+ for(let i=0;i<=segments;i++){const d=length*i/segments;vertices.push(pos(d,sideA,.05).x,pos(d,sideA,.05).y,pos(d,sideA,.05).z,pos(d,sideB,.05).x,pos(d,sideB,.05).y,pos(d,sideB,.05).z);
+ if(i<segments){let a=i*2;indices.push(a,a+1,a+2,a+1,a+3,a+2);}}
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geo.setIndex(indices);geo.computeVertexNormals();
+ const mesh=new THREE.Mesh(geo,material);mesh.receiveShadow=true;scene.add(mesh);return mesh;
+}
+const water=new THREE.Mesh(new THREE.PlaneGeometry(2400,2400),new THREE.MeshStandardMaterial({color:0x527d99,roughness:.65,metalness:.05}));
+water.rotation.x=-Math.PI/2;water.position.y=-5;water.receiveShadow=true;scene.add(water);
+makeStrip(-half,half,new THREE.MeshStandardMaterial({color:0x303a45,roughness:.82,metalness:.16,side:THREE.DoubleSide}),600);
+makeStrip(-half+.45,-half+.7,new THREE.MeshStandardMaterial({color:0xf5a45c,roughness:.7,side:THREE.DoubleSide}),600);
+makeStrip(half-.7,half-.45,new THREE.MeshStandardMaterial({color:0xf5a45c,roughness:.7,side:THREE.DoubleSide}),600);
+makeStrip(-.14,.14,new THREE.MeshStandardMaterial({color:0xb5c7d0,roughness:.65,side:THREE.DoubleSide}),600);
+
+const beamMat=new THREE.MeshStandardMaterial({color:0x384b5d,metalness:.82,roughness:.32});
+const railMat=new THREE.MeshStandardMaterial({color:0x5c7180,metalness:.75,roughness:.35});
+function beamBetween(a,b,r,material){const delta=new THREE.Vector3().subVectors(b,a),mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,delta.length(),6),material);mesh.position.copy(a).add(b).multiplyScalar(.5);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());mesh.castShadow=true;scene.add(mesh);return mesh;}
+for(let d=0;d<length;d+=4.2){
+ const f=atDistance(d);
+ for(const s of [-1,1]){
+  const bottom=f.point.clone().addScaledVector(f.right,s*(half+.45)).addScaledVector(f.up,.15);
+  const top=f.point.clone().addScaledVector(f.right,s*(half+.45)).addScaledVector(f.up,7.1);
+  beamBetween(bottom,top,.12,beamMat);
+ }
+ const a=f.point.clone().addScaledVector(f.right,-half-.45).addScaledVector(f.up,7.1);
+ const b=f.point.clone().addScaledVector(f.right,half+.45).addScaledVector(f.up,7.1);
+ beamBetween(a,b,.13,beamMat);
+ if(Math.round(d/4.2)%3===0){
+  for(const s of [-1,1]){
+   const a0=pos(d,s*(half+.45),1.25),b0=pos(d+4.2,s*(half+.45),1.25);beamBetween(a0,b0,.055,railMat);
+  }
+ }
+}
+
+const white=new THREE.MeshStandardMaterial({color:0xe8edf1,metalness:.4,roughness:.35,flatShading:true});
+const orange=new THREE.MeshStandardMaterial({color:0xf58a3c,metalness:.28,roughness:.34,flatShading:true});
+const dark=new THREE.MeshStandardMaterial({color:0x202b3b,metalness:.7,roughness:.3});
+const glass=new THREE.MeshPhysicalMaterial({color:0x4f8aa2,roughness:.18,metalness:.24,clearcoat:1});
+function wing(sign,scale,x,z,material){
+ const shape=new THREE.Shape();shape.moveTo(0,0);shape.lineTo(3.15*scale,0.55*scale);shape.lineTo(2.6*scale,1.05*scale);shape.lineTo(.28*scale,.45*scale);shape.closePath();
+ const mesh=new THREE.Mesh(new THREE.ShapeGeometry(shape),material);mesh.rotation.x=-Math.PI/2;mesh.scale.x=sign;mesh.position.set(x,0,z);mesh.castShadow=true;return mesh;
+}
+function aircraftModel(){
+ const root=new THREE.Group(),visual=new THREE.Group();root.add(visual);
+ const body=new THREE.Mesh(new THREE.CylinderGeometry(.32,.43,3.1,10),white);body.rotation.x=-Math.PI/2;body.position.z=.05;body.castShadow=true;visual.add(body);
+ const nose=new THREE.Mesh(new THREE.ConeGeometry(.33,1.25,10),orange);nose.rotation.x=-Math.PI/2;nose.position.z=-1.78;nose.castShadow=true;visual.add(nose);
+ const spine=new THREE.Mesh(new THREE.CylinderGeometry(.16,.2,1.35,8),orange);spine.rotation.x=-Math.PI/2;spine.position.set(0,.23,.44);visual.add(spine);
+ const cockpit=new THREE.Mesh(new THREE.SphereGeometry(1,10,7),glass);cockpit.scale.set(.22,.15,.57);cockpit.position.set(0,.36,-.47);visual.add(cockpit);
+ visual.add(wing(1,1,0,.02,white));visual.add(wing(-1,1,0,.02,white));
+ const tip=new THREE.Mesh(new THREE.BoxGeometry(.42,.075,.45),orange);tip.position.set(2.92,.04,.34);tip.rotation.y=-.19;visual.add(tip);
+ const tip2=tip.clone();tip2.position.x=-2.92;tip2.rotation.y=.19;visual.add(tip2);
+ visual.add(wing(1,.37,1.28,.08,white));visual.add(wing(-1,.37,-1.28,.08,white));
+ const tail=new THREE.Mesh(new THREE.BoxGeometry(.16,.75,.7),orange);tail.position.set(0,.44,1.72);visual.add(tail);
+ const nozzle=new THREE.Mesh(new THREE.CylinderGeometry(.26,.31,.55,10),dark);nozzle.rotation.x=-Math.PI/2;nozzle.position.z=1.75;visual.add(nozzle);
+ const flame=new THREE.Mesh(new THREE.ConeGeometry(.27,1.15,9),new THREE.MeshBasicMaterial({color:0xff9b35,transparent:true,opacity:.88}));flame.rotation.x=Math.PI/2;flame.position.z=2.48;visual.add(flame);
+ const inner=new THREE.Mesh(new THREE.ConeGeometry(.12,.72,8),new THREE.MeshBasicMaterial({color:0xffefb0,transparent:true,opacity:.95}));inner.rotation.x=Math.PI/2;inner.position.z=2.29;visual.add(inner);
+ const glow=new THREE.PointLight(0xff8a35,7,12,2);glow.position.set(0,.05,2.3);visual.add(glow);
+ return {root:root,visual:visual,flame:flame,inner:inner,glow:glow};
+}
+const jet=aircraftModel();scene.add(jet.root);
+const gateMat=new THREE.MeshStandardMaterial({color:0x71e4ff,emissive:0x2ba9d0,emissiveIntensity:1.2,metalness:.3,roughness:.3});
+const start=atDistance(0),gate=new THREE.Mesh(new THREE.TorusGeometry(4.2,.09,8,48),gateMat);
+gate.position.copy(start.point).addScaledVector(up,3.5);gate.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),start.tangent.clone().negate());scene.add(gate);
+
+const keys=new Set();let paused=false,distance=0,lateral=0,speed=57,elapsed=0,lastLap=null,completed=0,previousLap=0,visualTime=0;
+const minSpeed=30,maxSpeed=92;let best=null;try{best=Number(localStorage.getItem('jetway-best-lap'))||null;}catch(e){}
+const $=function(id){return document.getElementById(id);};
+function formatTime(s){if(s==null||!Number.isFinite(s))return '--:--.---';const m=Math.floor(s/60),sec=Math.floor(s%60),ms=Math.floor((s%1)*1000);return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')+'.'+String(ms).padStart(3,'0');}
+function resetRun(){distance=0;lateral=0;speed=57;elapsed=0;completed=0;previousLap=0;lastLap=null;$('last').textContent='--:--.---';$('current').textContent='00:00.000';$('lap').textContent='01';}
+window.addEventListener('keydown',function(e){const k=e.key.toLowerCase();if(['arrowleft','arrowright','arrowup','arrowdown',' '].includes(k))e.preventDefault();keys.add(k);if(k==='p'&&!e.repeat){paused=!paused;$('pause').classList.toggle('on',paused);}if(k==='r'&&!e.repeat)resetRun();});
+window.addEventListener('keyup',function(e){keys.delete(e.key.toLowerCase());});window.addEventListener('blur',function(){keys.clear();});
+const desired=new THREE.Vector3(),look=new THREE.Vector3(),basis=new THREE.Matrix4(),back=new THREE.Vector3(),smooth=new THREE.Vector3();let cameraReady=false;
+function update(dt,time){
+ const steer=(keys.has('a')||keys.has('arrowleft')?-1:0)+(keys.has('d')||keys.has('arrowright')?1:0);
+ const throttle=(keys.has('w')||keys.has('arrowup')?1:0)-(keys.has('s')||keys.has('arrowdown')?1:0),boosting=keys.has('shift')||keys.has(' ');
+ const target=THREE.MathUtils.clamp(speed+throttle*dt*22,minSpeed,maxSpeed);
+ speed=THREE.MathUtils.damp(speed,boosting?Math.min(maxSpeed+22,target*1.55):target,2.4,dt);
+ distance+=speed*dt;elapsed+=dt;lateral+=steer*dt*(6.2+speed*.025);lateral*=Math.exp(-dt*.06);lateral=THREE.MathUtils.clamp(lateral,-7.35,7.35);
+ const lapIndex=Math.floor(distance/length);
+ if(lapIndex>previousLap){lastLap=elapsed;if(!best||lastLap<best){best=lastLap;try{localStorage.setItem('jetway-best-lap',String(best));}catch(e){}}previousLap=lapIndex;completed=lapIndex;}
+ const f=atDistance(distance),plane=f.point.clone().addScaledVector(f.right,lateral).addScaledVector(f.up,1.7+Math.sin(time*6)*.07);
+ jet.root.position.copy(plane);back.copy(f.tangent).negate();basis.makeBasis(f.right,f.up,back);jet.root.quaternion.setFromRotationMatrix(basis);
+ jet.visual.rotation.z=THREE.MathUtils.damp(jet.visual.rotation.z,-steer*.27,5,dt);jet.visual.rotation.x=Math.sin(time*2.4)*.015;
+ const pulse=.84+Math.sin(time*35)*.12;jet.flame.scale.setScalar((boosting?1.48:.75)*pulse);jet.inner.scale.setScalar(boosting?1.35:.72);jet.glow.intensity=boosting?15:5+Math.sin(time*14)*.8;
+ $('boost').classList.toggle('on',boosting);
+ if(Math.abs(lateral)>6.15)speed=Math.max(minSpeed,speed-dt*17);
+ desired.copy(plane).addScaledVector(f.tangent,-14.5).addScaledVector(up,6.2);if(!cameraReady){smooth.copy(desired);cameraReady=true;}smooth.lerp(desired,1-Math.exp(-dt*3.6));camera.position.copy(smooth);
+ look.copy(plane).addScaledVector(f.tangent,10).addScaledVector(up,1.3);camera.lookAt(look);camera.fov=THREE.MathUtils.damp(camera.fov,boosting?72:66,2.4,dt);camera.updateProjectionMatrix();
+ $('speed').textContent=String(Math.round(speed*4.2));$('speedbar').style.width=Math.min(100,speed/(maxSpeed+22)*100)+'%';$('current').textContent=formatTime(elapsed);$('last').textContent=formatTime(lastLap);$('best').textContent=formatTime(best);$('lap').textContent=String(completed+1).padStart(2,'0');gate.rotation.z=Math.sin(time*1.3)*.035;
+}
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.035);visualTime+=dt;if(!paused)update(dt,visualTime);renderer.render(scene,camera);}
+animate();
+window.addEventListener('resize',function(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));});
+</script>
+</body>
+</html>
